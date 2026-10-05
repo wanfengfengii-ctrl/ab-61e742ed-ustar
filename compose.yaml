@@ -1,0 +1,31 @@
+services:
+  web:
+    build: .
+    image: bundle-attest:latest
+    ports:
+      # Host-side port is configurable: BUNDLE_HOST_PORT (default 8080).
+      - "${BUNDLE_HOST_PORT:-8080}:8080"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  verify:
+    build: .
+    image: bundle-attest:latest
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      BUNDLE_BASE_URL: http://web:8080
+    # One-shot: unit tests (image build already ran compileall) + smoke tests
+    # against the running web service (valid bundle, bad checksum, path
+    # conflict); exit code reports the overall result.
+    command: ["python", "scripts/verify.py"]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    volumes:
+      - ./tests:/srv/tests:ro
+      - ./scripts:/srv/scripts:ro
